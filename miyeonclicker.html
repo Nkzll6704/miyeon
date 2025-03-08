@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miyeon Clicker</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Ekran boyutlarını ayarla
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        // Renkler
+        const WHITE = '#ffffff';
+        const BLACK = '#000000';
+        const PINK = '#f24baa';
+        const GRAY = '#c8c8c8';
+
+        // Resimler
+        const miyeonImage = new Image();
+        miyeonImage.src = 'miyeon.png'; // Miyeon resmi
+        const noodleImage = new Image();
+        noodleImage.src = 'noodle.png'; // Noodle resmi
+
+        // Miyeon ve Noodle boyutları
+        const miyeonWidth = WIDTH * 0.5;
+        const miyeonHeight = HEIGHT;
+        const noodleSize = WIDTH * 0.1;
+
+        // Miyeon ve Noodle konumları
+        let miyeonRect = { x: WIDTH * 0.25, y: 0, width: miyeonWidth, height: miyeonHeight };
+        let noodleRect = { x: 0, y: 0, width: noodleSize, height: noodleSize };
+
+        // Skor ve diğer değişkenler
+        let score = 0;
+        let clickPower = 1;
+        let popularity = 0;
+        const pointsForPopularity = 1000;
+
+        // Noodle görünürlüğü
+        let noodleVisible = true;
+        let noodleHideTime = 0;
+        const noodleSpawnInterval = 17000; // 17 saniye
+
+        // 2x güç
+        let powerActive = false;
+        let powerStartTime = 0;
+        const powerDuration = 10000; // 10 saniye
+
+        // Rastgele konum üretme
+        function getRandomPosition() {
+            let x, y;
+            do {
+                x = Math.random() * (WIDTH - noodleSize);
+                y = Math.random() * (HEIGHT - noodleSize);
+            } while (x + noodleSize > miyeonRect.x && x < miyeonRect.x + miyeonRect.width &&
+                     y + noodleSize > miyeonRect.y && y < miyeonRect.y + miyeonRect.height);
+            return { x, y };
+        }
+
+        // Noodle'ı başlangıç konumuna yerleştir
+        noodleRect = getRandomPosition();
+
+        // Tıklama olayı
+        canvas.addEventListener('click', (event) => {
+            const mouseX = event.clientX;
+            const mouseY = event.clientY;
+
+            // Miyeon'a tıklandı mı?
+            if (mouseX >= miyeonRect.x && mouseX <= miyeonRect.x + miyeonRect.width &&
+                mouseY >= miyeonRect.y && mouseY <= miyeonRect.y + miyeonRect.height) {
+                score += clickPower;
+                console.log(`Miyeon'a tıklandı! Puan: ${score}`);
+
+                // Popularity artışı
+                if (score >= pointsForPopularity) {
+                    popularity++;
+                    score -= pointsForPopularity;
+                    console.log(`Popularity Artışı: ${popularity}`);
+                }
+            }
+
+            // Noodle'a tıklandı mı?
+            if (noodleVisible && mouseX >= noodleRect.x && mouseX <= noodleRect.x + noodleRect.width &&
+                mouseY >= noodleRect.y && mouseY <= noodleRect.y + noodleRect.height) {
+                powerActive = true;
+                powerStartTime = Date.now();
+                clickPower = 2;
+                noodleVisible = false;
+                noodleHideTime = Date.now();
+                console.log('2x Güç Aktif! Noodle gizlendi.');
+            }
+        });
+
+        // Oyun döngüsü
+        function gameLoop() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+            // Arka planı çiz
+            ctx.fillStyle = WHITE;
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Miyeon'u çiz
+            ctx.drawImage(miyeonImage, miyeonRect.x, miyeonRect.y, miyeonRect.width, miyeonRect.height);
+
+            // Noodle'ı çiz (görünürse)
+            if (noodleVisible) {
+                ctx.drawImage(noodleImage, noodleRect.x, noodleRect.y, noodleRect.width, noodleRect.height);
+
+                // Noodle 3 saniye boyunca tıklanmazsa gizle
+                if (Date.now() - noodleSpawnTime >= 3000) {
+                    noodleVisible = false;
+                    noodleHideTime = Date.now();
+                    console.log('Noodle 3 saniye boyunca tıklanmadı, gizlendi.');
+                }
+            }
+
+            // Noodle'ı yeniden göster (17 saniye sonra)
+            if (!noodleVisible && Date.now() - noodleHideTime >= noodleSpawnInterval) {
+                noodleVisible = true;
+                noodleRect = getRandomPosition();
+                noodleSpawnTime = Date.now();
+                console.log('Noodle tekrar belirdi!');
+            }
+
+            // Skoru çiz
+            ctx.fillStyle = BLACK;
+            ctx.font = '25px Arial';
+            ctx.fillText(`Puan: ${score}`, 10, 30);
+
+            // Popularity Bar'ı çiz
+            const barFillRatio = Math.min(score / pointsForPopularity, 1);
+            const barFillWidth = barFillRatio * (WIDTH * 0.5);
+
+            ctx.fillStyle = GRAY;
+            ctx.fillRect(10, HEIGHT - 60, WIDTH * 0.5, 30);
+            ctx.fillStyle = PINK;
+            ctx.fillRect(10, HEIGHT - 60, barFillWidth, 30);
+
+            // Popularity metni
+            ctx.fillStyle = BLACK;
+            ctx.fillText(`Popularity: ${popularity}`, 10, HEIGHT - 70);
+
+            // 2x güç aktifse geri sayımı göster
+            if (powerActive) {
+                const elapsedTime = Date.now() - powerStartTime;
+                const remainingTime = Math.max(0, powerDuration - elapsedTime);
+                if (remainingTime > 0) {
+                    ctx.fillText(`2x Güç: ${Math.floor(remainingTime / 1000)} saniye`, 10, 60);
+                } else {
+                    powerActive = false;
+                    clickPower = 1;
+                    console.log('2x Güç Sona Erdi!');
+                }
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Oyunu başlat
+        let noodleSpawnTime = Date.now();
+        gameLoop();
+    </script>
+</body>
+</html>
